@@ -3,14 +3,11 @@ import { shortenPostRequestBodySchema } from "../utils/request.utils.js";
 import { nanoid } from "nanoid";
 import  db  from "../db/index.db.js";
 import { urlsTable } from "../models/index.model.js";
+import { ensureAuthenticated } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-router.post("/shorten", async function (req, res) {
-  const userID = req.user?.id;
-
-  if (!userID)
-    return res.status(401).json({ error: "you have to login first" });
+router.post("/shorten", ensureAuthenticated, async function (req, res) {
 
   const validationResult = await shortenPostRequestBodySchema.safeParseAsync(
     req.body
