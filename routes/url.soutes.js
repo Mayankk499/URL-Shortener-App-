@@ -4,27 +4,26 @@ import { nanoid } from "nanoid";
 import db from "../db/index.db.js";
 import { urlsTable } from "../models/index.model.js";
 import { ensureAuthenticated } from "../middlewares/auth.middleware.js";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 const router = express.Router();
-
 
 router.post("/shorten", ensureAuthenticated, async function (req, res) {
   const validationResult = await shortenPostRequestBodySchema.safeParseAsync(
     req.body
   );
-  
+
   if (validationResult.error) {
     return res.status(400).json({ error: validationResult.error });
   }
-  
+
   const { url, code } = validationResult.data;
-  
+
   const shortCode = code ?? nanoid(6);
-  
+
   const [result] = await db
-  .insert(urlsTable)
-  .values({
+    .insert(urlsTable)
+    .values({
       shortCode,
       targetURL: url,
       userId: req.user.id,
@@ -42,6 +41,24 @@ router.post("/shorten", ensureAuthenticated, async function (req, res) {
   });
 });
 
+router.get("/codes", ensureAuthenticated, async function (req, res) {
+  const codes = await db
+    .select()
+    .from(urlsTable)
+    .where(eq(urlsTable.userId, req.user.id));
+
+  return res.json({ codes });
+});
+
+router.delete("/:id", ensureAuthenticated, async function (req, res) {
+  const id = req.params.id;
+  await db
+    .delete(urlsTable)
+    .where(and(eq(urlsTable.id, id), eq(urlsTable.userId, req.user.id),));
+
+    return res.status(200).json({deleted: true});
+});
+
 router.get("/:shortCode", async function (req, res) {
   const code = req.params.shortCode;
   const [result] = await db
@@ -51,10 +68,10 @@ router.get("/:shortCode", async function (req, res) {
     .from(urlsTable)
     .where(eq(urlsTable.shortCode, code));
 
-    if(!result){
-      res.status(404).json({error: 'Invalid URL'});
-    }
+  if (!result) {
+    res.status(404).json({ error: "Invalid URL" });
+  }
 
-    return res.redirect(result.targetURL);
+  return res.redirect(result.targetURL);
 });
 export default router;
